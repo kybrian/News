@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
 	"log"
+	"math"
 	"net/http" // HTTP Client and server implementations
 	"net/url"
 	"os" // Access OS functionality
+	"strconv"
 	"time"
 
 	"example.com/m/news"
@@ -42,11 +45,40 @@ func searchHandler(newsapi *news.Client) http.HandlerFunc {
 			return
 		}
 
+		nextPage, err := strconv.Atoi(page)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		search := &Search{
+			Query:      searchQuery,
+			NextPage:   nextPage,
+			TotalPages: int(math.Ceil(float64(results.TotalResults) / float64(newsapi.PageSize))),
+			Results:    results,
+		}
+
+		buf := &bytes.Buffer{}
+		err = tpl.Execute(buf, search)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		buf.WriteTo(w)
+
 		fmt.Printf("%+v", results)
 
 		fmt.Println("Search Query is: ", searchQuery)
 		fmt.Println("Page is: ", page)
 	}
+}
+
+type Search struct {
+	Query      string
+	NextPage   int
+	TotalPages int
+	Results    *news.Results
 }
 
 // var newsapi *news.Client
