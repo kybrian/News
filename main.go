@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"html/template"
 	"log"
 	"net/http" // HTTP Client and server implementations
-	"os"       // Access OS functionality
+	"net/url"
+	"os" // Access OS functionality
 
 	"github.com/joho/godotenv"
 )
@@ -15,6 +17,24 @@ var tpl = template.Must(template.ParseFiles("index.html")) // template.ParseFile
 func indexHandler(w http.ResponseWriter, r *http.Request /* Register http requests handler*/) {
 	// w.Write([]byte("<h1>Let's Go</h1>"))
 	tpl.Execute(w, nil)
+}
+
+func searchHandler(w http.ResponseWriter, r *http.Request) {
+	u, err := url.Parse(r.URL.String())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	params := u.Query()
+	searchQuery := params.Get("q")
+	page := params.Get("page")
+	if page == "" {
+		page = "1"
+	}
+
+	fmt.Println("Search Query is: ", searchQuery)
+	fmt.Println("Page is: ", page)
 }
 
 func main() {
@@ -30,15 +50,16 @@ func main() {
 		port = "3000"
 	}
 
-	// Instantiate a file server object
-	fs := http.FileServer(http.Dir("assets"))
-
 	mux := http.NewServeMux() // Create a http request multiplexer assigned to the mux variable
 
 	// Essentially, a request multiplexer matches the URL of incoming requests against a list of registered patterns, and calls the associated handler for the pattern whenever a match is found
+	// Instantiate a file server object
+	fs := http.FileServer(http.Dir("assets"))
 
-	mux.HandleFunc("/", indexHandler)
 	// tell router to use file server object for all paths beginning with the /assets/ prefix
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs)) // The http.StripPrefix() method modifies the request URL by stripping off the specified prefix before forwarding the handling of the request to the http.Handler in the second parameter.
-	http.ListenAndServe(":"+port, mux)                       // Start server
+
+	mux.HandleFunc("/search", searchHandler)
+	mux.HandleFunc("/", indexHandler)
+	http.ListenAndServe(":"+port, mux) // Start server
 }
